@@ -1,0 +1,8 @@
+altair==5.2.0
+folium==0.15.1
+numpy==1.24.3
+pandas==2.0.1
+plotly==5.14.1
+scikit_learn==1.2.2
+streamlit==1.29.0
+streamlit_folium==0.18.0
