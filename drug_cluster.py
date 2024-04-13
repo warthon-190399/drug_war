@@ -1,8 +1,8 @@
+import json
 import pandas as pd
 import plotly.express as px
 from sklearn.cluster import KMeans 
 import streamlit as st
-import json
 
 st.title("Análisis de Clusteres (K-Means)")
 
@@ -30,6 +30,8 @@ variable_mapping = {
     "det_con100": "Detenidos por Consumo (100mil hab)"
 }
 
+logo = "logoPulseNegro.png"
+st.sidebar.image(logo)
 st.sidebar.title("Panel de Selección")
 st.sidebar.header("Seleccione la Variable de Interés:")
 selected_var = st.sidebar.selectbox("Lista de Variables:",
@@ -81,6 +83,7 @@ fig_clustered = px.scatter(df_clustered,
                            x="departamento",
                            y="cluster",
                            color="cluster",
+                           color_continuous_scale="Cividis",
                            hover_data=["departamento", "cluster"],
                            title=f"Clustering por Departamentos de {selected_var}",
                            labels={"cluster": "Cluster"},
@@ -92,6 +95,7 @@ fig_map = px.choropleth_mapbox(map_df,
                                locations="id",
                                featureidkey="properties.FIRST_IDDP",
                                color="cluster",
+                               color_continuous_scale="Cividis",
                                hover_data=["departamento", "cluster"],
                                mapbox_style="carto-darkmatter",
                                center={
@@ -113,6 +117,7 @@ fig = px.bar(cluster_stats,
                 "cluster": "Cluster"
                     },
              title="Cantidad de Clusteres",
+             template="ggplot2",
              height=400,
              width=300,
              )
