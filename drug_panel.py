@@ -1,20 +1,17 @@
 import pandas as pd
 import numpy as np
 import plotly.express as px
-import plotly.graph_objects as go
 import altair as alt 
-import folium 
 import streamlit as st 
-from streamlit_folium import folium_static 
 import json 
 import warnings
 warnings.filterwarnings("ignore")
 
 # Config Page
 
-alt.themes.enable("dark")
-
 st.title("Drugboard")
+
+#Mapeo de variables y desarrollo del sidebar 
 
 variable_mapping = {
     "dec_pbc": "Incautaciones PBC (kg)",
@@ -39,7 +36,8 @@ variable_mapping = {
     "det_con": "Detenidos por Consumo",
     "det_con100": "Detenidos por Consumo (100mil hab)"
 }
-
+logo = "logoPulseNegro.png"
+st.sidebar.image(logo, width=300)
 st.sidebar.title("Panel de Selección")
 st.sidebar.header("Seleccione la Variable de Interés:")
 selected_var = st.sidebar.selectbox("Lista de Variables:",
@@ -57,7 +55,6 @@ selected_year = st.sidebar.slider("Años:",
                                   max_value=max(years),
                                   value=max(years)
                                   )
-st.sidebar.write("Por favor, una vez realizada la selección asegúrese de cerrar el panel para poder visualizar mejor el dashboard.")
 
 #Importamos df's
 
@@ -84,8 +81,7 @@ geojson_df = pd.DataFrame({
 df["time"] = pd.to_numeric(df["time"], errors="coerce")
 
 df_filtered = df[df["time"] == selected_year]
-
-
+#Hallamos medidas
 
 total_selecVar1 = df_filtered[selected_var_code].sum()
 
@@ -110,12 +106,93 @@ prop_aboveMean = len(df_filtered[df_filtered["mean_pos"] == "Above Mean"])/len(d
 
 prop_belowMean = 1 - prop_aboveMean
 
+#Choropleth
+fig_map = px.choropleth_mapbox(df_filtered,
+                           geojson=departamentos,
+                           locations='departamento',
+                           featureidkey="properties.NOMBDEP",
+                           color=selected_var_code,
+                           color_continuous_scale="Cividis",
+                           mapbox_style="carto-darkmatter",
+                           zoom=4,
+                           center={"lat": -9.1900, "lon": -75.0152},
+                           opacity=0.9,
+                           labels={selected_var_code: selected_var},
+                           hover_name='departamento',
+                           hover_data={selected_var_code: True, 'departamento': False}
+                           )
+fig_map.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+
+#figdensity
+def make_heatmap(input_df, input_y, input_x, input_color, input_color_theme):
+    heatmap = alt.Chart(input_df).mark_rect().encode(
+    y=alt.Y(f'{input_y}:O',
+            axis=alt.Axis(title="Year",
+            titleFontSize=18,
+            titlePadding=15,
+            titleFontWeight=900,
+            labelAngle=0
+            )),
+    x=alt.X(f'{input_x}:O',
+            axis=alt.Axis(title="",
+            titleFontSize=18,
+            titlePadding=15,
+            titleFontWeight=900
+            )),
+    color=alt.Color(f'max({input_color}):Q',
+                            legend=None,
+                            scale=alt.Scale(scheme=input_color_theme)
+                            ),
+                    stroke=alt.value('black'),
+                    strokeWidth=alt.value(0.25),
+        ).properties(width=900
+        ).configure_axis(
+            labelFontSize=12,
+            titleFontSize=12
+        )
+    return heatmap
+
+    
+heatmap = make_heatmap(df,"time", "departamento", selected_var_code, "cividis")
+
+#Grafico de Barras
+top_departments = df_filtered.nlargest(10, selected_var_code)[["departamento", selected_var_code]]
+top_departments = top_departments.sort_values(by=selected_var_code,
+                                                 ascending=True
+                                                 )
+fig_top = px.bar(top_departments,
+                 x=selected_var_code,
+                 y="departamento",
+                 template="ggplot2",
+                 orientation="h",
+                 labels={
+                     selected_var_code:"Valor",
+                     "departamento":"Departamento"
+                     },
+                 height=250,
+                 width=300,
+                 )
+
+
+fig_top.update_layout(xaxis=dict(title_text="Valor"),
+                      yaxis=dict(title_text="Departamento"),
+                      template="plotly_dark",
+                      margin=dict(l=0, r=0, t=0, b=0)  # Aquí establecemos todos los márgenes a 0
+                      )
+
+# Mostrar el gráfico
+
 #Columnas
-
-col = st.columns((1.5, 4.7, 1.8), gap = "medium")
-
-with col[0]:
+col0 = st.columns((6,3), gap="medium")
+with col0[0]:
     st.subheader("Métricas")
+
+with col0[1]:
+    st.subheader("Top 10 departamentos")
+
+col1 = st.columns((3,3,3), gap="medium")
+
+with col1[0]:
     if selected_var_code in ["dec_pbc","dec_cc","dec_mar","inc_sol","inc_usd","inc_act","int_tra","int_mic","int_con","det_tra","det_mic","det_con"]:
         st.metric(label=f"Total{selected_var}",
                   value=total_selecVar1,
@@ -124,7 +201,18 @@ with col[0]:
         st.metric(label=f"{selected_var}",
                   value=f"{percent_chg:.2f}%" if percent_chg is not None else "No Data",
                   delta="Var.%"
-                  )                          
+                  )
+    elif selected_var_code in ["dec_pbc100","dec_cc100","dec_mar100","t_iqf100","t_iqnf100","inc_sol100","inc_usd100","inc_act100","int_tra100","int_mic100","int_con100","det_tra100","det_mic100","det_con100"]:
+        st.metric(label=f"Media de {selected_var}",
+                  value=f"{mean_value:.2f}",
+                  delta="Ajustado por población"
+                  )
+        st.metric(label=f"{selected_var}",
+                  value=f"{percent_chg:.2f}%" if percent_chg is not None else "No Data",
+                  delta="Var. %"
+                  )
+with col1[1]:
+    if selected_var_code in ["dec_pbc","dec_cc","dec_mar","inc_sol","inc_usd","inc_act","int_tra","int_mic","int_con","det_tra","det_mic","det_con"]:
         st.metric(label=f"Media de {selected_var}",
                   value=f"{mean_value:.2f}",
                   delta=selected_year
@@ -134,125 +222,26 @@ with col[0]:
                   delta="Desv. Estándar"
                   )
     elif selected_var_code in ["dec_pbc100","dec_cc100","dec_mar100","t_iqf100","t_iqnf100","inc_sol100","inc_usd100","inc_act100","int_tra100","int_mic100","int_con100","det_tra100","det_mic100","det_con100"]:
-        st.metric(label=f"Media de {selected_var}",
-                  value=f"{mean_value:.2f}",
-                  delta="Ajustado por población"
-                  )
         st.metric(label="Cant.Departamentos",
                   value=f"{prop_aboveMean*100:.1f}%",
                   delta="por encima de la media"
                   )
+        
         st.metric(label="Cant. Departamentos",
                   value=f"{prop_belowMean*100:.1f}%",
                   delta="por debajo de la media"
                   )
-        st.metric(label=f"{selected_var}",
-                  value=f"{percent_chg:.2f}%" if percent_chg is not None else "No Data",
-                  delta="Var. %"
-                  )
-        
-    min_value = df_filtered[selected_var_code].min()
-    max_value = df_filtered[selected_var_code].max()
+with col1[2]:
+    st.plotly_chart(fig_top, use_container_width=True)
 
-    normalized_min_value = (mean_value - min_value) / (max_value - min_value)
-    normalized_max_value = (mean_value - min_value) / (max_value - min_value)
+st.subheader(f"{selected_var} en el año {selected_year}")
+st.plotly_chart(fig_map, use_container_width=True)
 
-    fig_gauge = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=mean_value,
-        domain={
-            "x":[normalized_min_value, normalized_max_value],
-            "y":[0,1] 
-        },
-        title={'text': "Media Normalizada",
-               'font':{"size":25}
-               }
-    ))
-    fig_gauge.update_layout(width=200,
-                            height=400,
-                            margin=dict(l=10, r=10, b=10, t=10)
-                            )
-    st.plotly_chart(fig_gauge)
+col3 = st.columns((5.5, 2.5), gap = "medium")
 
-with col[1]:
-    st.subheader(f"{selected_var} en el año {selected_year}")
-    m = folium.Map(location=[-9.1900, -75.0152],
-                   zoom_start=5,
-                   tiles="CartoDB dark_matter"
-                   )
-    folium.Choropleth(geo_data=departamentos,
-                      name="choropleth",
-                      data=df_filtered,
-                      columns=["departamento", selected_var_code],
-                      key_on="feature.properties.NOMBDEP",
-                      fill_color="plasma",
-                      fill_opacity=0.45,
-                      line_opacity=0.7,
-                      legend_name=selected_var,
-                      highlight=True,
-                      tooltip=folium.features.GeoJsonTooltip(fields=['departamento', selected_var_code], labels=True, sticky=False)
-                      ).add_to(m)
-    folium_static(m)
-
-    def make_heatmap(input_df, input_y, input_x, input_color, input_color_theme):
-        heatmap = alt.Chart(input_df).mark_rect().encode(
-            y=alt.Y(f'{input_y}:O',
-                    axis=alt.Axis(title="Year",
-                                  titleFontSize=18,
-                                  titlePadding=15,
-                                  titleFontWeight=900,
-                                  labelAngle=0
-                                  )),
-            x=alt.X(f'{input_x}:O',
-                    axis=alt.Axis(title="",
-                                  titleFontSize=18,
-                                  titlePadding=15,
-                                  titleFontWeight=900
-                                  )),
-            color=alt.Color(f'max({input_color}):Q',
-                            legend=None,
-                            scale=alt.Scale(scheme=input_color_theme)),
-            stroke=alt.value('black'),
-            strokeWidth=alt.value(0.25),
-        ).properties(width=900
-        ).configure_axis(
-            labelFontSize=12,
-            titleFontSize=12
-        )
-        return heatmap
-
-    
-    heatmap = make_heatmap(df,"time", "departamento", selected_var_code, "cividis")
-
+with col3[0]:
     st.altair_chart(heatmap, use_container_width=True)
-
-with col[2]:
-
-    st.subheader("Top 10 Departamentos")
-    top_departments = df_filtered.nlargest(10, selected_var_code)[["departamento", selected_var_code]]
-    top_departments = top_departments.sort_values(by=selected_var_code,
-                                                 ascending=True
-                                                 )
-    
-    fig = px.bar(top_departments,
-                 x=selected_var_code,
-                 y="departamento",
-                 orientation="h",
-                 labels={
-                     selected_var_code:"Valor",
-                     "departamento":"Departamento"
-                     },
-                 height=400,
-                 width=300,
-                 )
-
-    fig.update_layout(xaxis=dict(title_text="Valor"),
-                      yaxis=dict(title_text="Departamento"),
-                      template="plotly_dark"
-                      )
-    
-    st.plotly_chart(fig)
-
+with col3[1]:
     with st.expander("Acerca de:",
                      expanded=False
                      ):
@@ -261,7 +250,6 @@ with col[2]:
             - :orange[**Entidad Gubernamental:**] [DIRANDRO - PNP](https://dirandro.policia.gob.pe/contenido.xhtml?id=10).
             - :orange[**Fuente**]: Datos extraídos a partir de los anuarios estadísticos de la PNP, sección Tráfico Ilícito de Drogas.
                  ''')
-
 
 
 
