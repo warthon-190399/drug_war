@@ -27,7 +27,7 @@ Drugboard es una aplicación interactiva desarrollada en Streamlit que ofrece an
 - Explora las diferentes opciones, selecciona variables de interés y obtén análisis detallados sobre el narcotráfico en Perú.
 
 ## Acerca del Autor
-El proyecto fue realizado por Tato Warthon en colaboración con la Dirección Antidrogas de la Policía Nacional del Perú (DIRANDRO - PNP).
+El proyecto fue realizado por Tato Warthon a través de los datos publicados por la Dirección Antidrogas de la Policía Nacional del Perú (DIRANDRO - PNP).
 
 ## Fuentes de Datos
 Los datos utilizados en este proyecto fueron extraídos de los anuarios estadísticos de la PNP, específicamente de la sección de Tráfico Ilícito de Drogas.
